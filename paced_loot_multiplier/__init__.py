@@ -55,11 +55,14 @@ def multiplier_slider(opt: SliderOption, new_value: float) -> None:
 
 @SliderOption(
     identifier="Drops Per Enemy Per Tick",
-    value=1,
+    value=3,
     min_value=1,
     max_value=3,
     step=1,
-    description="How many extra drops each enemy releases per network tick.",
+    description=(
+        "How many extra drops each enemy releases per network tick. Drops still queued when the"
+        " body disappears are lost, so low values with a high multiplier give less loot."
+    ),
 ).set_on_change()
 def batch_slider(opt: SliderOption, new_value: float) -> None:
     pass
