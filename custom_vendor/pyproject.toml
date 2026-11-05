@@ -1,0 +1,19 @@
+[project]
+name = "custom_vendor"
+version = "1.0.0"
+authors = [{ name = "ha7gawa" }, { name = "apple1417" }]
+description = """\
+Library: opens a vendor menu filled with any items, used by Item Editor and Item Catalog.
+
+Derived from the vendor menu code of apple1417's Vendor Edit.
+"""
+
+[project.urls]
+Homepage = "https://github.com/ha7gawa/bl2-sdk-mods"
+Original = "https://github.com/apple1417/willow2-sdk-mods/tree/master/vendor_edit"
+
+[tool.sdkmod]
+name = "Custom Vendor"
+version = "1.0"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+supported_games = ["BL2"]

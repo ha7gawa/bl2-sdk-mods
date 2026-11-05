@@ -1,3 +1,10 @@
+"""
+Paced loot multiplier.
+
+Based on juso40's Drop Chance Multiplier (MIT, see LICENSE.juso40):
+https://github.com/juso40/bl2sdk_Mods/tree/master/DropChanceMultiplier
+"""
+
 from dataclasses import dataclass
 from typing import Any
 import time

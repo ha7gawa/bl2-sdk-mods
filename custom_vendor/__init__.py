@@ -1,6 +1,13 @@
+"""
+Opens the black market vendor movie filled with arbitrary items.
+
+Derived from vendor_movie.py of apple1417's Vendor Edit:
+https://github.com/apple1417/willow2-sdk-mods/tree/master/vendor_edit (GPL-3.0)
+"""
+
 from typing import Callable, Sequence
 import unrealsdk
-from mods_base import Game, get_pc, hook
+from mods_base import Game, Library, build_mod, get_pc, hook
 from unrealsdk.hooks import Block, Type
 from unrealsdk.unreal import UObject
 
@@ -295,3 +302,6 @@ def _hook_on_close(*_):
     reset_state()
     if cb:
         cb()
+
+# Hooks are enabled only while a vendor is open, so don't let build_mod collect them
+mod = build_mod(cls=Library, hooks=())

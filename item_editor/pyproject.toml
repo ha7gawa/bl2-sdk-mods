@@ -1,0 +1,23 @@
+[project]
+name = "item_editor"
+version = "1.0.0"
+authors = [{ name = "ha7gawa" }]
+description = """\
+Edit the parts and level of any weapon or item in a vendor menu, or clone it.
+
+How to use: open the inventory, hover over an item and press F9 (rebindable in the options). \
+Click a slot to see every part the item can roll there and click one to install it. \
+Click LEVEL to change the level, CLONE to put a copy in the backpack. \
+Esc goes back, Esc on the slot list saves the item and returns to the inventory.
+
+Requires Custom Vendor. Part lists follow apple1417's Vendor Edit.
+"""
+
+[project.urls]
+Homepage = "https://github.com/ha7gawa/bl2-sdk-mods"
+
+[tool.sdkmod]
+name = "Item Editor"
+version = "1.0"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+supported_games = ["BL2"]

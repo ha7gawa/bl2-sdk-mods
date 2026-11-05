@@ -1,0 +1,23 @@
+[project]
+name = "item_catalog"
+version = "1.0.0"
+authors = [{ name = "ha7gawa" }]
+description = """\
+A vendor menu with one of every weapon, shield, class mod, grenade, relic and quest reward, at \
+your level.
+
+How to use: press F5 while playing (rebindable in the options). Z/X - previous/next page, \
+C - next category, V - next weapon type, click - take a copy, Esc - close. \
+The first open takes a few seconds while the catalog is built.
+
+Requires Custom Vendor.
+"""
+
+[project.urls]
+Homepage = "https://github.com/ha7gawa/bl2-sdk-mods"
+
+[tool.sdkmod]
+name = "Item Catalog"
+version = "1.0"
+license = { name = "GPL3", url = "https://choosealicense.com/licenses/gpl-3.0/" }
+supported_games = ["BL2"]

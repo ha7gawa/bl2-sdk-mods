@@ -1,3 +1,11 @@
+"""
+In-game item part and level editor.
+
+The dummy slot items and the part list resolution follow dummy_items.py and replacement_lists.py
+of apple1417's Vendor Edit:
+https://github.com/apple1417/willow2-sdk-mods/tree/master/vendor_edit (GPL-3.0)
+"""
+
 from copy import copy
 import time
 import unrealsdk
