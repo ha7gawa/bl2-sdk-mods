@@ -5,7 +5,11 @@ from mods_base import SliderOption, ButtonOption, build_mod
 def log(msg: str) -> None:
     print(f"[NO_VISUAL_CLUTTER] {msg}")
 
-GROUPS: Dict[str, Dict[str, List[Tuple[Any, List[float]]]]] = {
+# Original lookup table values, keyed by (distribution module, property name). Kept across rescans
+# so that tables we already scaled are never mistaken for originals.
+TABLE_STATE: Dict[Tuple[Any, str], Dict[str, List[float]]] = {}
+
+GROUPS: Dict[str, Dict[str, List[Tuple[Any, Dict[str, List[float]]]]]] = {
     "screen_dots": {"size": [], "alpha": []}, # Fire, corrosive and slag effects on the screen
     "explosions":  {"size": [], "alpha": []}, # Explosions, launcher splash, barrels
     "impacts":     {"size": [], "alpha": []}, # Bullet impacts on ground, rock, metal, dust
@@ -130,13 +134,19 @@ def scan_and_route_vfx() -> None:
                                 if val is not None and hasattr(val, "LookupTable"):
                                     tbl = val.LookupTable
                                     if tbl and len(tbl) > 0:
-                                        data = [float(x) for x in tbl]
+                                        current = [float(x) for x in tbl]
+                                        state = TABLE_STATE.get((mod, f_name))
+                                        # Only reuse the stored originals if the table still holds
+                                        # what we wrote, otherwise it's a freshly loaded one
+                                        if state is None or state["applied"] != current:
+                                            state = {"orig": current, "applied": current}
+                                            TABLE_STATE[(mod, f_name)] = state
                                         fn_lower = f_name.lower()
 
                                         if any(k in fn_lower for k in ("alpha", "color", "opacity", "fade")):
-                                            GROUPS[target_group]["alpha"].append((val, data))
+                                            GROUPS[target_group]["alpha"].append((val, state))
                                         else:
-                                            GROUPS[target_group]["size"].append((val, data))
+                                            GROUPS[target_group]["size"].append((val, state))
                             except Exception:
                                 pass
                             curr = getattr(curr, "Next", None)
@@ -151,100 +161,147 @@ def apply_group_scale(group: str, sub_type: str, percent: int, min_val: float = 
     factor = percent / 100.0
     tables = GROUPS.get(group, {}).get(sub_type, [])
     count = 0
-    for st, orig_values in tables:
+    for st, state in tables:
         try:
             tbl = st.LookupTable
-            for i, base in enumerate(orig_values):
+            for i, base in enumerate(state["orig"]):
                 if base != 0.0:
                     val = base * factor
                     if val < min_val and base >= min_val:
                         val = min_val
                     tbl[i] = val
+            state["applied"] = [float(x) for x in tbl]
             count += 1
         except Exception:
             pass
     log(f"[{group}::{sub_type}] = {percent}% ({count} updated)")
 
+def restore_all() -> None:
+    for g in GROUPS.values():
+        for tables in g.values():
+            for st, state in tables:
+                try:
+                    tbl = st.LookupTable
+                    for i, base in enumerate(state["orig"]):
+                        tbl[i] = base
+                    state["applied"] = [float(x) for x in tbl]
+                except Exception:
+                    pass
+    log("Restored original effects.")
+
 # 1. Grenades
-@SliderOption("1. Grenades: Size (%)", 100, 0, 100, 10, description="Size of grenade effects, trails and vortexes.")
+@SliderOption("1. Grenades: Size (%)", 100, 0, 100, 10, description="Size of grenade effects, trails and vortexes.").set_on_change()
 def opt_gr_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("grenades", "size", val)
 
-@SliderOption("1. Grenades: Alpha (%)", 100, 0, 100, 10, description="Opacity of grenade effects.")
+@SliderOption("1. Grenades: Alpha (%)", 100, 0, 100, 10, description="Opacity of grenade effects.").set_on_change()
 def opt_gr_al(s: SliderOption, val: int) -> None:
     apply_group_scale("grenades", "alpha", val)
 
 # 2. Shields
-@SliderOption("2. Shields: Size (%)", 100, 0, 100, 10, description="Size of shield novas, spikes and flashes.")
+@SliderOption("2. Shields: Size (%)", 100, 0, 100, 10, description="Size of shield novas, spikes and flashes.").set_on_change()
 def opt_sh_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("shields", "size", val)
 
-@SliderOption("2. Shields: Alpha (%)", 100, 0, 100, 10, description="Opacity of shield barriers, hit flashes and novas.")
+@SliderOption("2. Shields: Alpha (%)", 100, 0, 100, 10, description="Opacity of shield barriers, hit flashes and novas.").set_on_change()
 def opt_sh_al(s: SliderOption, val: int) -> None:
     apply_group_scale("shields", "alpha", val)
 
 # 3. Bullet trails and E-Tech beams
-@SliderOption("3. Tracers & E-Tech: Size (%)", 100, 0, 100, 10, description="Thickness of bullet, laser and plasma trails.")
+@SliderOption("3. Tracers & E-Tech: Size (%)", 100, 0, 100, 10, description="Thickness of bullet, laser and plasma trails.").set_on_change()
 def opt_tr_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("tracers", "size", val)
 
-@SliderOption("3. Tracers & E-Tech: Alpha (%)", 100, 0, 100, 10, description="Opacity of bullet and laser trails.")
+@SliderOption("3. Tracers & E-Tech: Alpha (%)", 100, 0, 100, 10, description="Opacity of bullet and laser trails.").set_on_change()
 def opt_tr_al(s: SliderOption, val: int) -> None:
     apply_group_scale("tracers", "alpha", val)
 
 # 4. Surface impacts
-@SliderOption("4. Surface Impacts: Size (%)", 100, 0, 100, 10, description="Size of dirt splashes, wall sparks and rock debris.")
+@SliderOption("4. Surface Impacts: Size (%)", 100, 0, 100, 10, description="Size of dirt splashes, wall sparks and rock debris.").set_on_change()
 def opt_imp_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("impacts", "size", val)
 
-@SliderOption("4. Surface Impacts: Alpha (%)", 100, 0, 100, 10, description="Opacity of surface impact effects.")
+@SliderOption("4. Surface Impacts: Alpha (%)", 100, 0, 100, 10, description="Opacity of surface impact effects.").set_on_change()
 def opt_imp_al(s: SliderOption, val: int) -> None:
     apply_group_scale("impacts", "alpha", val)
 
 # 5. Explosions and rockets
-@SliderOption("5. Explosions: Size (%)", 100, 10, 100, 10, description="Size of explosions, rockets and barrels.")
+@SliderOption("5. Explosions: Size (%)", 100, 10, 100, 10, description="Size of explosions, rockets and barrels.").set_on_change()
 def opt_exp_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("explosions", "size", val, min_val=2.0)
 
-@SliderOption("5. Explosions: Alpha (%)", 100, 0, 100, 10, description="Opacity of detonation flashes.")
+@SliderOption("5. Explosions: Alpha (%)", 100, 0, 100, 10, description="Opacity of detonation flashes.").set_on_change()
 def opt_exp_al(s: SliderOption, val: int) -> None:
     apply_group_scale("explosions", "alpha", val)
 
 # 6. Muzzle flashes and smoke
-@SliderOption("6. Weapon Muzzle & Smoke: Size (%)", 100, 0, 100, 10, description="Size of muzzle flame and smoke.")
+@SliderOption("6. Weapon Muzzle & Smoke: Size (%)", 100, 0, 100, 10, description="Size of muzzle flame and smoke.").set_on_change()
 def opt_muz_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("muzzle", "size", val)
 
-@SliderOption("6. Weapon Muzzle & Smoke: Alpha (%)", 100, 0, 100, 10, description="Opacity of muzzle smoke and flashes.")
+@SliderOption("6. Weapon Muzzle & Smoke: Alpha (%)", 100, 0, 100, 10, description="Opacity of muzzle smoke and flashes.").set_on_change()
 def opt_muz_al(s: SliderOption, val: int) -> None:
     apply_group_scale("muzzle", "alpha", val)
 
 # 7. Floating loot icons
-@SliderOption("7. Loot Floating Icons: Size (%)", 100, 20, 100, 10, description="Size of the floating 3D weapon/shield icons over loot.")
+@SliderOption("7. Loot Floating Icons: Size (%)", 100, 20, 100, 10, description="Size of the floating 3D weapon/shield icons over loot.").set_on_change()
 def opt_licon_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("loot_icons", "size", val, min_val=0.5)
 
 # 8. Loot light beams
-@SliderOption("8. Loot Light Beams: Size (%)", 100, 20, 100, 10, description="Height and thickness of rare loot light beams.")
+@SliderOption("8. Loot Light Beams: Size (%)", 100, 20, 100, 10, description="Height and thickness of rare loot light beams.").set_on_change()
 def opt_lbeam_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("loot_beams", "size", val, min_val=1.0)
 
 # 9. On-screen damage effects (fire/corrosive in front of the camera)
-@SliderOption("9. Screen DoT: Alpha (%)", 100, 0, 100, 10, description="Opacity of fire and corrosive effects on the screen.")
+@SliderOption("9. Screen DoT: Alpha (%)", 100, 0, 100, 10, description="Opacity of fire and corrosive effects on the screen.").set_on_change()
 def opt_scr_al(s: SliderOption, val: int) -> None:
     apply_group_scale("screen_dots", "alpha", val)
 
 # 10. Action skills
-@SliderOption("10. Action Skills: Alpha (%)", 100, 0, 100, 10, description="Opacity of action skill effects (Gunzerking, Deception).")
+@SliderOption("10. Action Skills: Alpha (%)", 100, 0, 100, 10, description="Opacity of action skill effects (Gunzerking, Deception).").set_on_change()
 def opt_sk_al(s: SliderOption, val: int) -> None:
     apply_group_scale("skills", "alpha", val)
 
-@ButtonOption("Re-Scan Packages", description="Rescan the effects currently loaded by the game.")
+SLIDER_TARGETS = [
+    (opt_gr_sz, "grenades", "size", 0.0),
+    (opt_gr_al, "grenades", "alpha", 0.0),
+    (opt_sh_sz, "shields", "size", 0.0),
+    (opt_sh_al, "shields", "alpha", 0.0),
+    (opt_tr_sz, "tracers", "size", 0.0),
+    (opt_tr_al, "tracers", "alpha", 0.0),
+    (opt_imp_sz, "impacts", "size", 0.0),
+    (opt_imp_al, "impacts", "alpha", 0.0),
+    (opt_exp_sz, "explosions", "size", 2.0),
+    (opt_exp_al, "explosions", "alpha", 0.0),
+    (opt_muz_sz, "muzzle", "size", 0.0),
+    (opt_muz_al, "muzzle", "alpha", 0.0),
+    (opt_licon_sz, "loot_icons", "size", 0.5),
+    (opt_lbeam_sz, "loot_beams", "size", 1.0),
+    (opt_scr_al, "screen_dots", "alpha", 0.0),
+    (opt_sk_al, "skills", "alpha", 0.0),
+]
+
+def apply_all() -> None:
+    for opt, group, sub_type, min_val in SLIDER_TARGETS:
+        apply_group_scale(group, sub_type, int(opt.value), min_val)
+
+@ButtonOption(
+    "Re-Scan Packages",
+    description="Rescan the effects currently loaded by the game and apply the sliders to them. Use after loading a new area if some effects were not changed.",
+)
 def opt_rescan(btn: ButtonOption) -> None:
+    if not mod.is_enabled:
+        return
     scan_and_route_vfx()
+    apply_all()
 
 def on_enable() -> None:
     scan_and_route_vfx()
+    apply_all()
+
+def on_disable() -> None:
+    restore_all()
 
 mod = build_mod(
     options=[
@@ -261,4 +318,5 @@ mod = build_mod(
         opt_rescan,
     ],
     on_enable=on_enable,
+    on_disable=on_disable,
 )
