@@ -1,7 +1,7 @@
 from copy import copy
 import time
 import unrealsdk
-from mods_base import build_mod, get_pc, hook
+from mods_base import KeybindOption, build_mod, get_pc, hook
 from unrealsdk.hooks import Block, Type
 from ui_utils import show_chat_message
 
@@ -33,6 +33,12 @@ _dummy_to_slot_map = {}
 _item_to_part_map = {}
 _level_options_map = {}
 _slot_dummy_objects = {}
+
+edit_key = KeybindOption(
+    "Edit Item Key",
+    "F9",
+    description="Open the inventory, hover over a weapon or item and press this key to edit it.",
+)
 
 def log(msg: str) -> None:
     print(f"[ITEM_EDITOR] {msg}")
@@ -328,7 +334,7 @@ def render_slots_view():
     custom_vendor.update_vendor_items(
         display_items,
         title=f"EDITOR: {item_name}",
-        hint="[ESC] Back to inventory | Click an entry to use it",
+        hint="[Click] Open slot / change level / clone | [ESC] Save and back to inventory",
     )
 
 def render_parts_view(slot_field: str, parts_list: list, slot_label: str):
@@ -520,7 +526,7 @@ def _on_status_input_key(obj, args, _ret, _func):
     key = str(getattr(args, "ukey", getattr(args, "Key", "")))
     event = getattr(args, "uevent", getattr(args, "Event", None))
 
-    if event == 0 and key == "F9":
+    if event == 0 and edit_key.value and key == edit_key.value:
         inv_panel = getattr(obj, "InventoryPanel", None)
         selected_item = inv_panel.GetSelectedThing() if inv_panel else None
 
@@ -564,6 +570,6 @@ def _on_echo_started(_obj, _args, _ret, _func):
             pc.ShowStatusMenu_Inventory()
 
 def on_enable():
-    log("Item editor ready.")
+    log(f"Item editor ready. Open the inventory, hover over an item and press [{edit_key.value}].")
 
-mod = build_mod(on_enable=on_enable)
+mod = build_mod(options=[edit_key], on_enable=on_enable)

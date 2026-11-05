@@ -1,5 +1,5 @@
 import unrealsdk
-from mods_base import SpinnerOption, build_mod, get_pc, hook
+from mods_base import KeybindOption, SpinnerOption, build_mod, get_pc, hook
 from unrealsdk.hooks import Block, Type
 from ui_utils import show_chat_message
 
@@ -44,6 +44,15 @@ SUB_LABELS = {
 
 CURRENT_CAT_IDX = 0
 CURRENT_SUBCAT_IDX = 0
+
+open_key = KeybindOption(
+    "Open Catalog Key",
+    "F5",
+    description=(
+        "Opens the catalog while playing (not from other menus). Inside the catalog: Z/X - previous/next"
+        " page, C - next category, V - next weapon type, click - take a copy, Esc - close."
+    ),
+)
 
 CATEGORY_ORDER = {
     "weapons": 1,
@@ -254,7 +263,7 @@ def get_ui_strings(max_pages: int, total_items: int) -> tuple[str, str]:
         type_str = f"[{cat_label}]"
 
     panel_title = f"Page {CURRENT_PAGE}/{max_pages} {type_str} ({total_items})"
-    hint_text = "[Z/X] Page [C] Category [V] Weapon type"
+    hint_text = "[Z/X] Page  [C] Category  [V] Weapon type  [Click] Take  [Esc] Close"
     return panel_title, hint_text
 
 def refresh_shop_view():
@@ -424,7 +433,7 @@ def ui_interaction_input_key(_1, args, _3, _4):
     key = str(getattr(args, "Key", ""))
     event = getattr(args, "Event", None)
 
-    if event == 0 and key == "F5":
+    if event == 0 and open_key.value and key == open_key.value:
         pc = get_pc()
         if not pc:
             return None
@@ -448,9 +457,9 @@ def ui_interaction_input_key(_1, args, _3, _4):
     return None
 
 def on_enable() -> None:
-    log("Loaded. F5 opens the catalog.")
+    log(f"Loaded. [{open_key.value}] opens the catalog.")
 
 mod = build_mod(
-    options=[category_spinner, weapon_sub_spinner],
+    options=[open_key, category_spinner, weapon_sub_spinner],
     on_enable=on_enable,
 )
