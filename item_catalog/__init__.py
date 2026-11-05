@@ -130,7 +130,15 @@ def build_master_cache():
         return []
 
     IS_BUILDING_CACHE = True
-    pawn = pc.Pawn
+    try:
+        CACHED_MASTER_ITEMS = collect_catalog(pc.Pawn)
+    finally:
+        # Reset even on errors, otherwise the catalog could never be built again
+        IS_BUILDING_CACHE = False
+    log(f"Catalog ready. Items: {len(CACHED_MASTER_ITEMS)}")
+    return CACHED_MASTER_ITEMS
+
+def collect_catalog(pawn):
     player_level = pawn.GetExpLevel() if hasattr(pawn, "GetExpLevel") else 72
     item_pool_cdo = unrealsdk.find_class("ItemPool").ClassDefaultObject
 
@@ -224,10 +232,7 @@ def build_master_cache():
         x[3]
     ))
 
-    CACHED_MASTER_ITEMS = [(item, cat, subcat) for item, cat, subcat, _ in collected]
-    IS_BUILDING_CACHE = False
-    log(f"Catalog ready. Items: {len(CACHED_MASTER_ITEMS)}")
-    return CACHED_MASTER_ITEMS
+    return [(item, cat, subcat) for item, cat, subcat, _ in collected]
 
 def get_current_filtered_pool():
     all_data = build_master_cache()
@@ -455,6 +460,12 @@ def ui_interaction_input_key(_1, args, _3, _4):
         return Block, True
 
     return None
+
+# The catalog items are actors in the current level and get destroyed with it
+@hook("Engine.WorldInfo:PreExitMap")
+def on_pre_exit_map(_obj, _args, _ret, _func):
+    global CACHED_MASTER_ITEMS
+    CACHED_MASTER_ITEMS = []
 
 def on_enable() -> None:
     log(f"Loaded. [{open_key.value}] opens the catalog.")
