@@ -1,0 +1,456 @@
+import unrealsdk
+from mods_base import SpinnerOption, build_mod, get_pc, hook
+from unrealsdk.hooks import Block, Type
+from ui_utils import show_chat_message
+
+try:
+    from custom_vendor import (
+        show_vendor,
+        close_vendor,
+        update_vendor_items,
+        update_vendor_labels,
+        is_vendor_open,  # Добавили проверку активности
+    )
+except ImportError:
+    show_vendor = None
+    is_vendor_open = lambda: False
+
+CACHED_MASTER_ITEMS = []
+IS_BUILDING_CACHE = False
+CURRENT_PAGE = 1
+ITEMS_PER_PAGE = 35
+
+CATEGORIES_LIST = ["all", "weapons", "shields", "classmods", "gear", "quests"]
+WEAPON_SUBS_LIST = ["all", "pistols", "shotguns", "snipers", "assault_rifles", "smgs", "launchers"]
+
+RU_CAT_NAMES = {
+    "all": "ВСЕ",
+    "weapons": "ОРУЖИЕ",
+    "shields": "ЩИТЫ",
+    "classmods": "КОМЫ",
+    "gear": "ГРАНАТЫ/АРТ",
+    "quests": "КВЕСТЫ",
+}
+
+RU_SUB_NAMES = {
+    "all": "ВСЕ",
+    "pistols": "ПИСТОЛЕТЫ",
+    "shotguns": "ДРОБОВИКИ",
+    "snipers": "СНАЙПЕРКИ",
+    "assault_rifles": "АВТОМАТЫ",
+    "smgs": "ПП",
+    "launchers": "РАКЕТНИЦЫ",
+}
+
+CURRENT_CAT_IDX = 0
+CURRENT_SUBCAT_IDX = 0
+
+CATEGORY_ORDER = {
+    "weapons": 1,
+    "shields": 2,
+    "gear": 3,
+    "classmods": 4,
+    "quests": 5,
+    "misc": 6,
+}
+
+SUBCAT_ORDER = {
+    "pistols": 1,
+    "shotguns": 2,
+    "smgs": 3,
+    "assault_rifles": 4,
+    "snipers": 5,
+    "launchers": 6,
+    "grenades": 7,
+    "artifacts": 8,
+    "shields": 9,
+    "classmods": 10,
+    "other_weapons": 11,
+    "other": 12,
+}
+
+CREATE_WEAPON_FROM_DEF = unrealsdk.find_class("WillowWeapon").ClassDefaultObject.CreateWeaponFromDef
+CREATE_ITEM_FROM_DEF = unrealsdk.find_class("WillowItem").ClassDefaultObject.CreateItemFromDef
+
+def log(msg: str) -> None:
+    print(f"[BUNKER_DEBUG] {msg}")
+
+def classify_item(itm):
+    if not itm or not hasattr(itm, "Class") or not itm.Class:
+        return "misc", "other"
+
+    class_name = itm.Class.Name.lower()
+    full_path = str(itm.Class).lower()
+
+    if "weapon" in class_name or "weapon" in full_path:
+        if "pistol" in class_name or "pistol" in full_path:
+            return "weapons", "pistols"
+        elif "shotgun" in class_name or "shotgun" in full_path:
+            return "weapons", "shotguns"
+        elif "sniper" in class_name or "sniper" in full_path:
+            return "weapons", "snipers"
+        elif any(k in full_path for k in ("assault", "rifle", "ar_")):
+            return "weapons", "assault_rifles"
+        elif "smg" in class_name or "smg" in full_path:
+            return "weapons", "smgs"
+        elif "launcher" in class_name or "rl_" in full_path:
+            return "weapons", "launchers"
+        return "weapons", "other_weapons"
+
+    elif "shield" in class_name or "shield" in full_path:
+        return "shields", "shields"
+    elif "classmod" in class_name or "classmod" in full_path:
+        return "classmods", "classmods"
+    elif "grenade" in class_name or "grenademod" in full_path or "gm_" in full_path:
+        return "gear", "grenades"
+    elif "artifact" in class_name or "artifact" in full_path or "a_item" in full_path:
+        return "gear", "artifacts"
+
+    return "misc", "other"
+
+def build_master_cache():
+    global CACHED_MASTER_ITEMS, IS_BUILDING_CACHE
+    if CACHED_MASTER_ITEMS:
+        return CACHED_MASTER_ITEMS
+
+    if IS_BUILDING_CACHE:
+        return []
+
+    pc = get_pc()
+    if not pc or not pc.Pawn:
+        return []
+
+    IS_BUILDING_CACHE = True
+    pawn = pc.Pawn
+    player_level = pawn.GetExpLevel() if hasattr(pawn, "GetExpLevel") else 72
+    item_pool_cdo = unrealsdk.find_class("ItemPool").ClassDefaultObject
+
+    log("Генерация каталога предметов...")
+    collected = []
+    seen = set()
+
+    balance_classes = ("WeaponBalanceDefinition", "InventoryBalanceDefinition", "ClassModBalanceDefinition")
+    all_defs = []
+    for b_cls in balance_classes:
+        try:
+            all_defs.extend(list(unrealsdk.find_all(b_cls)))
+        except Exception:
+            pass
+
+    for b_def in all_defs:
+        if not b_def:
+            continue
+        b_name = b_def.Name.lower()
+        if any(w in b_name for w in ("dummy", "test", "currency", "ammo", "money", "vehicle")):
+            continue
+
+        try:
+            _, items = item_pool_cdo.SpawnBalancedInventoryFromInventoryBalanceDefinition(
+                InvBalanceDefinition=b_def,
+                Quantity=1,
+                GameStage=player_level,
+                AwesomeLevel=5,
+                ContextSource=pawn,
+                SpawnedInventory=()
+            )
+            if items:
+                for itm in items:
+                    if not itm:
+                        continue
+                    if hasattr(pawn, "InvManager") and pawn.InvManager:
+                        try:
+                            pawn.InvManager.RemoveFromInventory(itm)
+                        except Exception:
+                            pass
+
+                    name = itm.GetHumanReadableName() if hasattr(itm, "GetHumanReadableName") else str(itm)
+                    if name and name not in seen:
+                        seen.add(name)
+                        cat, subcat = classify_item(itm)
+                        collected.append((itm, cat, subcat, name))
+        except Exception:
+            pass
+
+    missions = list(unrealsdk.find_all("MissionDefinition"))
+    for m in missions:
+        if not m:
+            continue
+        for r_name in ("Reward", "AlternativeReward"):
+            rew = getattr(m, r_name, None)
+            if not rew:
+                continue
+            r_items = getattr(rew, "RewardItems", []) or []
+            for r_item in r_items:
+                if not r_item:
+                    continue
+                try:
+                    _, items = item_pool_cdo.SpawnBalancedInventoryFromInventoryBalanceDefinition(
+                        InvBalanceDefinition=r_item,
+                        Quantity=1,
+                        GameStage=player_level,
+                        AwesomeLevel=5,
+                        ContextSource=pawn,
+                        SpawnedInventory=()
+                    )
+                    if items:
+                        for itm in items:
+                            if not itm:
+                                continue
+                            if hasattr(pawn, "InvManager") and pawn.InvManager:
+                                try:
+                                    pawn.InvManager.RemoveFromInventory(itm)
+                                except Exception:
+                                    pass
+                            name = itm.GetHumanReadableName() if hasattr(itm, "GetHumanReadableName") else str(itm)
+                            if name and name not in seen:
+                                seen.add(name)
+                                cat, subcat = classify_item(itm)
+                                collected.append((itm, "quests", subcat, name))
+                except Exception:
+                    pass
+
+    collected.sort(key=lambda x: (
+        CATEGORY_ORDER.get(x[1], 99),
+        SUBCAT_ORDER.get(x[2], 99),
+        x[3]
+    ))
+
+    CACHED_MASTER_ITEMS = [(item, cat, subcat) for item, cat, subcat, _ in collected]
+    IS_BUILDING_CACHE = False
+    log(f"Каталог готов. Предметов: {len(CACHED_MASTER_ITEMS)}")
+    return CACHED_MASTER_ITEMS
+
+def get_current_filtered_pool():
+    all_data = build_master_cache()
+    if not all_data:
+        return []
+
+    cat = CATEGORIES_LIST[CURRENT_CAT_IDX]
+    subcat = WEAPON_SUBS_LIST[CURRENT_SUBCAT_IDX]
+
+    filtered = []
+    for itm, item_cat, item_subcat in all_data:
+        match_cat = (cat == "all" or cat == item_cat)
+        if match_cat:
+            if cat == "weapons" and subcat != "all" and item_subcat != subcat:
+                match_cat = False
+            elif cat != "weapons" and subcat != "all" and item_subcat != subcat:
+                match_cat = False
+
+        if match_cat:
+            filtered.append(itm)
+    return filtered
+
+def get_ui_strings(max_pages: int, total_items: int) -> tuple[str, str]:
+    cat_key = CATEGORIES_LIST[CURRENT_CAT_IDX]
+    sub_key = WEAPON_SUBS_LIST[CURRENT_SUBCAT_IDX]
+
+    cat_label = RU_CAT_NAMES.get(cat_key, cat_key.upper())
+    sub_label = RU_SUB_NAMES.get(sub_key, sub_key.upper())
+
+    if cat_key == "weapons" and sub_key != "all":
+        type_str = f"[{cat_label}: {sub_label}]"
+    else:
+        type_str = f"[{cat_label}]"
+
+    panel_title = f"Стр. {CURRENT_PAGE}/{max_pages} {type_str} ({total_items})"
+    hint_text = "[Z/X]Стр [C]Тип [V]Оружие"
+    return panel_title, hint_text
+
+def refresh_shop_view():
+    global CURRENT_PAGE
+    filtered = get_current_filtered_pool()
+    total_items = len(filtered)
+    if total_items == 0:
+        return
+
+    max_pages = max(1, (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    CURRENT_PAGE = max(1, min(CURRENT_PAGE, max_pages))
+
+    start_idx = (CURRENT_PAGE - 1) * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    page_items = filtered[start_idx:end_idx]
+
+    panel_title, hint_text = get_ui_strings(max_pages, total_items)
+    update_vendor_items(page_items, title=panel_title, hint=hint_text)
+
+def handle_purchase(item, _movie):
+    pc = get_pc()
+    pawn = pc.Pawn if pc else None
+    if not item or not pawn:
+        return
+
+    inv_mgr = getattr(pawn, "InvManager", None)
+    if not inv_mgr:
+        return
+
+    def_data = getattr(item, "DefinitionData", None)
+    new_item = None
+
+    try:
+        if def_data is not None:
+            if item.Class._inherits(unrealsdk.find_class("WillowWeapon")):
+                new_item = CREATE_WEAPON_FROM_DEF(
+                    NewWeaponDef=def_data,
+                    PlayerOwner=pawn,
+                    bForceSelectNameParts=True,
+                )
+            else:
+                new_item = CREATE_ITEM_FROM_DEF(
+                    NewItemDef=def_data,
+                    PlayerOwner=pawn,
+                    NewQuantity=1,
+                    bForceSelectNameParts=True,
+                )
+    except Exception as e:
+        log(f"Ошибка клонирования: {e}")
+
+    if new_item is None:
+        new_item = item
+
+    if new_item is not None:
+        new_item.Owner = pawn
+        inv_mgr.AddInventoryToBackpack(new_item)
+
+        if hasattr(inv_mgr, "ForceNetUpdate"):
+            inv_mgr.ForceNetUpdate()
+        if hasattr(pawn, "ForceNetUpdate"):
+            pawn.ForceNetUpdate()
+
+        final_name = new_item.GetHumanReadableName() if hasattr(new_item, "GetHumanReadableName") else str(new_item)
+        log(f"Успешно куплено: {final_name}")
+        try:
+            show_chat_message(f"Получено: {final_name}", user="[Магазин]")
+        except Exception:
+            pass
+
+def shop_key_handler(_movie, key: str, _event: int) -> bool:
+    global CURRENT_PAGE, CURRENT_CAT_IDX, CURRENT_SUBCAT_IDX
+
+    # ДОБАВИТЬ ЭТУ СТРОКУ В САМОЕ НАЧАЛО ФУНКЦИИ:
+    if _event != 0:
+        return False
+
+    if key in ("Z", "LeftBracket"):
+        filtered = get_current_filtered_pool()
+        max_pages = max(1, (len(filtered) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        CURRENT_PAGE = max(1, CURRENT_PAGE - 1)
+        refresh_shop_view()
+        return True
+
+    elif key in ("X", "RightBracket"):
+        filtered = get_current_filtered_pool()
+        max_pages = max(1, (len(filtered) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        CURRENT_PAGE = min(max_pages, CURRENT_PAGE + 1)
+        refresh_shop_view()
+        return True
+
+    elif key == "C":
+        CURRENT_CAT_IDX = (CURRENT_CAT_IDX + 1) % len(CATEGORIES_LIST)
+        CURRENT_SUBCAT_IDX = 0
+        CURRENT_PAGE = 1
+        category_spinner.value = CATEGORIES_LIST[CURRENT_CAT_IDX]
+        weapon_sub_spinner.value = "all"
+        refresh_shop_view()
+        return True
+
+    elif key == "V":
+        if CATEGORIES_LIST[CURRENT_CAT_IDX] != "weapons":
+            CURRENT_CAT_IDX = CATEGORIES_LIST.index("weapons")
+            category_spinner.value = "weapons"
+            CURRENT_SUBCAT_IDX = 1
+        else:
+            CURRENT_SUBCAT_IDX = (CURRENT_SUBCAT_IDX + 1) % len(WEAPON_SUBS_LIST)
+
+        CURRENT_PAGE = 1
+        weapon_sub_spinner.value = WEAPON_SUBS_LIST[CURRENT_SUBCAT_IDX]
+        refresh_shop_view()
+        return True
+
+    return False
+
+def open_master_shop():
+    global CURRENT_PAGE
+    if show_vendor is None:
+        log("Библиотека custom_vendor не найдена!")
+        return
+
+    filtered = get_current_filtered_pool()
+    total_items = len(filtered)
+    if total_items == 0:
+        return
+
+    max_pages = max(1, (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    CURRENT_PAGE = 1
+
+    start_idx = 0
+    end_idx = ITEMS_PER_PAGE
+    page_items = filtered[start_idx:end_idx]
+
+    panel_title, hint_text = get_ui_strings(max_pages, total_items)
+
+    show_vendor(
+        items=page_items,
+        on_select=handle_purchase,
+        key_handler=shop_key_handler,
+        title=panel_title,
+        hint=hint_text,
+    )
+
+@SpinnerOption(
+    identifier="Shop Category",
+    value="all",
+    choices=CATEGORIES_LIST,
+    description="Основная категория."
+)
+def category_spinner(opt: SpinnerOption, val: str) -> None:
+    global CURRENT_CAT_IDX
+    if val in CATEGORIES_LIST:
+        CURRENT_CAT_IDX = CATEGORIES_LIST.index(val)
+
+@SpinnerOption(
+    identifier="Weapon Subcategory",
+    value="all",
+    choices=WEAPON_SUBS_LIST,
+    description="Подтип оружия."
+)
+def weapon_sub_spinner(opt: SpinnerOption, val: str) -> None:
+    global CURRENT_SUBCAT_IDX
+    if val in WEAPON_SUBS_LIST:
+        CURRENT_SUBCAT_IDX = WEAPON_SUBS_LIST.index(val)
+
+@hook("WillowGame.WillowUIInteraction:InputKey", Type.PRE)
+def ui_interaction_input_key(_1, args, _3, _4):
+    key = str(getattr(args, "Key", ""))
+    event = getattr(args, "Event", None)
+
+    if event == 0 and key == "F5":
+        pc = get_pc()
+        if not pc:
+            return None
+
+        # 1. Защита: не открываем, если витрина уже открыта
+        if is_vendor_open():
+            return Block, True
+
+        # 2. Защита: не открываем, если игрок в инвентаре, паузе или другом меню
+        mgr = getattr(pc, "GFxUIManager", None)
+        if mgr and hasattr(mgr, "ScreenMovies"):
+            # Если в стеке есть реальные окна помимо базового HUD/Echo
+            active_screens = [m for m in mgr.ScreenMovies if m and "EchoVersion" not in m.Class.Name]
+            if active_screens:
+                return Block, True
+
+        # 3. Открываем каталог и блокируем дальнейшую обработку клавиши игрой
+        open_master_shop()
+        return Block, True
+
+    return None
+
+def on_enable() -> None:
+    log("Мод загружен через custom_vendor. F5 — Открыть магазин.")
+
+mod = build_mod(
+    options=[category_spinner, weapon_sub_spinner],
+    on_enable=on_enable,
+)
