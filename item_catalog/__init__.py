@@ -262,12 +262,10 @@ def get_ui_strings(max_pages: int, total_items: int) -> tuple[str, str]:
     cat_label = CAT_LABELS.get(cat_key, cat_key.upper())
     sub_label = SUB_LABELS.get(sub_key, sub_key.upper())
 
-    if cat_key == "weapons" and sub_key != "all":
-        type_str = f"[{cat_label}: {sub_label}]"
-    else:
-        type_str = f"[{cat_label}]"
+    weapon_label = sub_label if cat_key == "weapons" else "WEAPONS"
 
-    panel_title = f"Page {CURRENT_PAGE}/{max_pages} {type_str} ({total_items})"
+    # The vendor movie never displays the hint label, so the controls have to go into the title
+    panel_title = f"[Z/X] Page {CURRENT_PAGE}/{max_pages}  [C] {cat_label}  [V] {weapon_label}"
     hint_text = "[Z/X] Page  [C] Category  [V] Weapon type  [Click] Take  [Esc] Close"
     return panel_title, hint_text
 

@@ -89,8 +89,8 @@ custom_vendor.show_vendor(
     on_select=lambda item, movie: ...,
     on_close=lambda: ...,
     key_handler=lambda movie, key, event: False,  # return True to consume the key
-    title="TITLE",
-    hint="[Esc] Close",
+    title="TITLE",  # the only label the vendor menu reliably shows, put controls here
+    hint="[Esc] Close",  # set on VisitLabel_BlackMarket, not visible in the default layout
 )
 custom_vendor.update_vendor_items(new_items, title="...", hint="...")
 custom_vendor.close_vendor()
