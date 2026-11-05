@@ -21,7 +21,7 @@ _last_network_tick_time: float = 0.0
 
 
 def is_host() -> bool:
-    """Проверяет, является ли текущий игрок хостом."""
+    """Checks whether the local player is the host."""
     try:
         pc = get_pc()
         if pc is not None and hasattr(pc, "WorldInfo") and pc.WorldInfo:
@@ -40,7 +40,7 @@ def is_host() -> bool:
     min_value=1,
     max_value=100,
     step=1,
-    description="Сколько раз повторить дроп с каждого врага.",
+    description="How many times each enemy drops its loot.",
 ).set_on_change()
 def multiplier_slider(opt: SliderOption, new_value: float) -> None:
     pass
@@ -52,7 +52,7 @@ def multiplier_slider(opt: SliderOption, new_value: float) -> None:
     min_value=1,
     max_value=3,
     step=1,
-    description="Сколько дропов выдавать каждому врагу за один сетевой шаг.",
+    description="How many extra drops each enemy releases per network tick.",
 ).set_on_change()
 def batch_slider(opt: SliderOption, new_value: float) -> None:
     pass
@@ -64,7 +64,7 @@ def batch_slider(opt: SliderOption, new_value: float) -> None:
     min_value=15,
     max_value=200,
     step=5,
-    description="Интервал сетевого шага в миллисекундах (35-50мс предотвращает рассинхрон в сети).",
+    description="Delay between network ticks in milliseconds. 35-50 ms prevents desync for co-op clients.",
 ).set_on_change()
 def delay_slider(opt: SliderOption, new_value: float) -> None:
     pass
@@ -111,7 +111,7 @@ def player_tick_hook(
     if not drop_queue:
         return
 
-    # Запускаем только от локального контроллера хоста
+    # Only run from the host's local controller
     try:
         local_pc = get_pc()
         if local_pc is not None and local_pc != obj:
@@ -123,7 +123,7 @@ def player_tick_hook(
         drop_queue.clear()
         return
 
-    # Сетевой троттлинг
+    # Network throttling
     now = time.time()
     interval_sec = float(delay_slider.value) / 1000.0
     if (now - _last_network_tick_time) < interval_sec:
@@ -133,16 +133,16 @@ def player_tick_hook(
 
     drops_per_enemy = int(batch_slider.value)
 
-    # Параллельный обход всех активных врагов в очереди
+    # Process every queued enemy in the same tick
     for item in drop_queue[:]:
         pawn = item.caller()
 
-        # Если тело моба исчезло из памяти
+        # The enemy's body was already destroyed
         if pawn is None:
             drop_queue.remove(item)
             continue
 
-        # Выдаем фиксированную порцию (1 дроп) текущему мобу в этом сетевом цикле
+        # Release a fixed batch of drops for this enemy in this tick
         for _ in range(min(drops_per_enemy, item.remaining)):
             _is_internal_drop = True
             try:
@@ -159,7 +159,7 @@ def player_tick_hook(
 
             item.remaining -= 1
 
-        # Если у этого врага закончился лимит дропа — убираем его из очереди
+        # This enemy is done dropping, remove it from the queue
         if item.remaining <= 0:
             if item in drop_queue:
                 drop_queue.remove(item)

@@ -3,19 +3,19 @@ import unrealsdk
 from mods_base import SliderOption, ButtonOption, build_mod
 
 def log(msg: str) -> None:
-    print(f"[CLEAN_FX] {msg}")
+    print(f"[NO_VISUAL_CLUTTER] {msg}")
 
 GROUPS: Dict[str, Dict[str, List[Tuple[Any, List[float]]]]] = {
-    "screen_dots": {"size": [], "alpha": []}, # Огонь, кислота, шлак на экране
-    "explosions":  {"size": [], "alpha": []}, # Взрывы, сплэш ракетниц, бочки
-    "impacts":     {"size": [], "alpha": []}, # Попадания в землю, скалы, металл, пыль
-    "tracers":     {"size": [], "alpha": []}, # Следы пуль, эридианские лучи (E-Tech), плазма
-    "muzzle":      {"size": [], "alpha": []}, # Дульные вспышки и дым ствола
-    "grenades":    {"size": [], "alpha": []}, # Гранаты, шлейфы полета, сингулярности
-    "shields":     {"size": [], "alpha": []}, # Щиты персонажа, шипы, нова-вспышки
-    "skills":      {"size": [], "alpha": []}, # Шизострел, Бор, скиллы сирены
-    "loot_beams":  {"size": [], "alpha": []}, # Столбы света выпавшего лута
-    "loot_icons":  {"size": [], "alpha": []}, # Парящие 3D-иконки оружия над лутом
+    "screen_dots": {"size": [], "alpha": []}, # Fire, corrosive and slag effects on the screen
+    "explosions":  {"size": [], "alpha": []}, # Explosions, launcher splash, barrels
+    "impacts":     {"size": [], "alpha": []}, # Bullet impacts on ground, rock, metal, dust
+    "tracers":     {"size": [], "alpha": []}, # Bullet trails, E-Tech beams, plasma
+    "muzzle":      {"size": [], "alpha": []}, # Muzzle flashes and barrel smoke
+    "grenades":    {"size": [], "alpha": []}, # Grenades, trails, singularities
+    "shields":     {"size": [], "alpha": []}, # Player shields, spikes, novas
+    "skills":      {"size": [], "alpha": []}, # Gunzerking, Deathtrap, siren skills
+    "loot_beams":  {"size": [], "alpha": []}, # Light beams over dropped loot
+    "loot_icons":  {"size": [], "alpha": []}, # Floating 3D icons over loot
 }
 
 def get_path(obj: Any) -> str:
@@ -34,10 +34,10 @@ def scan_and_route_vfx() -> None:
     try:
         all_ps = list(unrealsdk.find_all("ParticleSystem"))
     except Exception as e:
-        log(f"Ошибка find_all: {e}")
+        log(f"find_all error: {e}")
         return
 
-    log(f"Сортировка {len(all_ps)} систем частиц...")
+    log(f"Sorting {len(all_ps)} particle systems...")
 
     for ps in all_ps:
         if not ps:
@@ -48,47 +48,47 @@ def scan_and_route_vfx() -> None:
         if not path:
             continue
 
-        # Прицелы и урон в цифрах не трогаем
+        # Leave scopes and damage numbers alone
         if any(w in path for w in ("scopes", "reticle", "dynamic_number", "part_dynamic_mission")):
             continue
 
         target_group = None
 
-        # 1. Экранные эффекты урона
+        # 1. On-screen damage effects
         if "fx_int_screen" in path or "elemental_damage" in path:
             target_group = "screen_dots"
 
-        # 2. Лут: разделяем иконки и лучевые столбы
+        # 2. Loot: floating icons and light beams separately
         elif any(p in path for p in ("itemicons", "itemcard", "iconoff")):
             target_group = "loot_icons"
         elif any(p in path for p in ("fx_shared_items", "itemlocator", "lootablelocator", "locatorstick")):
             target_group = "loot_beams"
 
-        # 3. Гранаты (изолированная группа)
+        # 3. Grenades
         elif any(p in path for p in ("fx_wep_grenades", "grenade_tracer", "singularity", "bouncingbetty")):
             target_group = "grenades"
 
-        # 4. Щиты (изолированная группа)
+        # 4. Shields
         elif any(p in path for p in ("fx_char_shared_shield", "spikeshields", "shieldnova", "part_shield")):
             target_group = "shields"
 
-        # 5. Следы пуль и эридианских лучей
+        # 5. Bullet trails and E-Tech beams
         elif any(p in path for p in ("fx_wep_trails", "trails_alien", "tracer", "bullet_projectile", "twister", "gyrojet")):
             target_group = "tracers"
 
-        # 6. Попадания в поверхности и окружение
+        # 6. Surface impacts
         elif any(p in path for p in ("bulletimpacts", "bullet_impacts", "groundimpact", "kickup", "scrape")):
             target_group = "impacts"
 
-        # 7. Навыки персонажей
+        # 7. Character skills
         elif any(p in path for p in ("fx_char_merc", "fx_char_assassin", "fx_char_siren", "fx_characterabilities")):
             target_group = "skills"
 
-        # 8. Взрывы и сплэши
+        # 8. Explosions and splash
         elif any(p in path for p in ("fx_wep_explosions", "fx_shared_explosions", "fx_wep_launchers", "rl_nuke", "explo_barrel")):
             target_group = "explosions"
 
-        # 9. Дульные вспышки и дым ствола
+        # 9. Muzzle flashes and barrel smoke
         elif any(p in path for p in ("fx_wep_alien", "fx_wep_pistol", "fx_wep_smg", "fx_wep_assault", "fx_wep_shotgun", "fx_wep_sniper", "muzzleflash")):
             target_group = "muzzle"
 
@@ -143,9 +143,9 @@ def scan_and_route_vfx() -> None:
         except Exception:
             continue
 
-    log("=== ИТОГИ МАРШРУТИЗАЦИИ ===")
+    log("=== Routing summary ===")
     for k, v in GROUPS.items():
-        log(f"  * {k.upper().ljust(14)} -> Размер: {str(len(v['size'])).ljust(5)} | Альфа: {len(v['alpha'])}")
+        log(f"  * {k.upper().ljust(14)} -> Size: {str(len(v['size'])).ljust(5)} | Alpha: {len(v['alpha'])}")
 
 def apply_group_scale(group: str, sub_type: str, percent: int, min_val: float = 0.0) -> None:
     factor = percent / 100.0
@@ -163,83 +163,83 @@ def apply_group_scale(group: str, sub_type: str, percent: int, min_val: float = 
             count += 1
         except Exception:
             pass
-    log(f"[{group}::{sub_type}] = {percent}% (обновлено {count})")
+    log(f"[{group}::{sub_type}] = {percent}% ({count} updated)")
 
-# 1. Гранаты (Отдельно)
-@SliderOption("1. Grenades: Size (%)", 100, 0, 100, 10, description="Размер эффектов гранат, шлейфов и вортексов.")
+# 1. Grenades
+@SliderOption("1. Grenades: Size (%)", 100, 0, 100, 10, description="Size of grenade effects, trails and vortexes.")
 def opt_gr_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("grenades", "size", val)
 
-@SliderOption("1. Grenades: Alpha (%)", 100, 0, 100, 10, description="Прозрачность эффектов гранат.")
+@SliderOption("1. Grenades: Alpha (%)", 100, 0, 100, 10, description="Opacity of grenade effects.")
 def opt_gr_al(s: SliderOption, val: int) -> None:
     apply_group_scale("grenades", "alpha", val)
 
-# 2. Щиты (Отдельно)
-@SliderOption("2. Shields: Size (%)", 100, 0, 100, 10, description="Размер эффектов новы, шипов и вспышек щитов.")
+# 2. Shields
+@SliderOption("2. Shields: Size (%)", 100, 0, 100, 10, description="Size of shield novas, spikes and flashes.")
 def opt_sh_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("shields", "size", val)
 
-@SliderOption("2. Shields: Alpha (%)", 100, 0, 100, 10, description="Прозрачность барьеров, вспышек урона и щитов.")
+@SliderOption("2. Shields: Alpha (%)", 100, 0, 100, 10, description="Opacity of shield barriers, hit flashes and novas.")
 def opt_sh_al(s: SliderOption, val: int) -> None:
     apply_group_scale("shields", "alpha", val)
 
-# 3. Следы пуль и эридианских лучей (Tracers)
-@SliderOption("3. Tracers & E-Tech: Size (%)", 100, 0, 100, 10, description="Толщина линий полета пуль, лазеров и плазмы.")
+# 3. Bullet trails and E-Tech beams
+@SliderOption("3. Tracers & E-Tech: Size (%)", 100, 0, 100, 10, description="Thickness of bullet, laser and plasma trails.")
 def opt_tr_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("tracers", "size", val)
 
-@SliderOption("3. Tracers & E-Tech: Alpha (%)", 100, 0, 100, 10, description="Прозрачность следов пуль и лазеров.")
+@SliderOption("3. Tracers & E-Tech: Alpha (%)", 100, 0, 100, 10, description="Opacity of bullet and laser trails.")
 def opt_tr_al(s: SliderOption, val: int) -> None:
     apply_group_scale("tracers", "alpha", val)
 
-# 4. Попадания в объекты и окружение
-@SliderOption("4. Surface Impacts: Size (%)", 100, 0, 100, 10, description="Размер брызг грязи, искр от стен и осколков камня.")
+# 4. Surface impacts
+@SliderOption("4. Surface Impacts: Size (%)", 100, 0, 100, 10, description="Size of dirt splashes, wall sparks and rock debris.")
 def opt_imp_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("impacts", "size", val)
 
-@SliderOption("4. Surface Impacts: Alpha (%)", 100, 0, 100, 10, description="Прозрачность эффектов попадания в окружение.")
+@SliderOption("4. Surface Impacts: Alpha (%)", 100, 0, 100, 10, description="Opacity of surface impact effects.")
 def opt_imp_al(s: SliderOption, val: int) -> None:
     apply_group_scale("impacts", "alpha", val)
 
-# 5. Взрывы и ракеты
-@SliderOption("5. Explosions: Size (%)", 100, 10, 100, 10, description="Размер взрывов, ракетниц и бочек.")
+# 5. Explosions and rockets
+@SliderOption("5. Explosions: Size (%)", 100, 10, 100, 10, description="Size of explosions, rockets and barrels.")
 def opt_exp_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("explosions", "size", val, min_val=2.0)
 
-@SliderOption("5. Explosions: Alpha (%)", 100, 0, 100, 10, description="Прозрачность вспышек детонаций.")
+@SliderOption("5. Explosions: Alpha (%)", 100, 0, 100, 10, description="Opacity of detonation flashes.")
 def opt_exp_al(s: SliderOption, val: int) -> None:
     apply_group_scale("explosions", "alpha", val)
 
-# 6. Дульные вспышки и дым выстрела
-@SliderOption("6. Weapon Muzzle & Smoke: Size (%)", 100, 0, 100, 10, description="Размер пламени и дыма из ствола.")
+# 6. Muzzle flashes and smoke
+@SliderOption("6. Weapon Muzzle & Smoke: Size (%)", 100, 0, 100, 10, description="Size of muzzle flame and smoke.")
 def opt_muz_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("muzzle", "size", val)
 
-@SliderOption("6. Weapon Muzzle & Smoke: Alpha (%)", 100, 0, 100, 10, description="Прозрачность дульного дыма и вспышек.")
+@SliderOption("6. Weapon Muzzle & Smoke: Alpha (%)", 100, 0, 100, 10, description="Opacity of muzzle smoke and flashes.")
 def opt_muz_al(s: SliderOption, val: int) -> None:
     apply_group_scale("muzzle", "alpha", val)
 
-# 7. Иконки предметов над лутом
-@SliderOption("7. Loot Floating Icons: Size (%)", 100, 20, 100, 10, description="Размер парящих 3D-иконок оружия/щитов над лутом.")
+# 7. Floating loot icons
+@SliderOption("7. Loot Floating Icons: Size (%)", 100, 20, 100, 10, description="Size of the floating 3D weapon/shield icons over loot.")
 def opt_licon_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("loot_icons", "size", val, min_val=0.5)
 
-# 8. Столбы света лута
-@SliderOption("8. Loot Light Beams: Size (%)", 100, 20, 100, 10, description="Высота и толщина световых столбов редкого лута.")
+# 8. Loot light beams
+@SliderOption("8. Loot Light Beams: Size (%)", 100, 20, 100, 10, description="Height and thickness of rare loot light beams.")
 def opt_lbeam_sz(s: SliderOption, val: int) -> None:
     apply_group_scale("loot_beams", "size", val, min_val=1.0)
 
-# 9. Эффекты урона на экране (огонь/кислота перед глазами)
-@SliderOption("9. Screen DoT: Alpha (%)", 100, 0, 100, 10, description="Прозрачность огня и кислоты на экране игрока.")
+# 9. On-screen damage effects (fire/corrosive in front of the camera)
+@SliderOption("9. Screen DoT: Alpha (%)", 100, 0, 100, 10, description="Opacity of fire and corrosive effects on the screen.")
 def opt_scr_al(s: SliderOption, val: int) -> None:
     apply_group_scale("screen_dots", "alpha", val)
 
-# 10. Навыки персонажей
-@SliderOption("10. Action Skills: Alpha (%)", 100, 0, 100, 10, description="Прозрачность эффектов способностей (Шизострел, Инвиз).")
+# 10. Action skills
+@SliderOption("10. Action Skills: Alpha (%)", 100, 0, 100, 10, description="Opacity of action skill effects (Gunzerking, Deception).")
 def opt_sk_al(s: SliderOption, val: int) -> None:
     apply_group_scale("skills", "alpha", val)
 
-@ButtonOption("Re-Scan Packages", description="Пересканировать память игры.")
+@ButtonOption("Re-Scan Packages", description="Rescan the effects currently loaded by the game.")
 def opt_rescan(btn: ButtonOption) -> None:
     scan_and_route_vfx()
 

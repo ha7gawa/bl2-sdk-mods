@@ -9,7 +9,7 @@ try:
         close_vendor,
         update_vendor_items,
         update_vendor_labels,
-        is_vendor_open,  # Добавили проверку активности
+        is_vendor_open,
     )
 except ImportError:
     show_vendor = None
@@ -23,23 +23,23 @@ ITEMS_PER_PAGE = 35
 CATEGORIES_LIST = ["all", "weapons", "shields", "classmods", "gear", "quests"]
 WEAPON_SUBS_LIST = ["all", "pistols", "shotguns", "snipers", "assault_rifles", "smgs", "launchers"]
 
-RU_CAT_NAMES = {
-    "all": "ВСЕ",
-    "weapons": "ОРУЖИЕ",
-    "shields": "ЩИТЫ",
-    "classmods": "КОМЫ",
-    "gear": "ГРАНАТЫ/АРТ",
-    "quests": "КВЕСТЫ",
+CAT_LABELS = {
+    "all": "ALL",
+    "weapons": "WEAPONS",
+    "shields": "SHIELDS",
+    "classmods": "CLASS MODS",
+    "gear": "GRENADES/RELICS",
+    "quests": "QUEST REWARDS",
 }
 
-RU_SUB_NAMES = {
-    "all": "ВСЕ",
-    "pistols": "ПИСТОЛЕТЫ",
-    "shotguns": "ДРОБОВИКИ",
-    "snipers": "СНАЙПЕРКИ",
-    "assault_rifles": "АВТОМАТЫ",
-    "smgs": "ПП",
-    "launchers": "РАКЕТНИЦЫ",
+SUB_LABELS = {
+    "all": "ALL",
+    "pistols": "PISTOLS",
+    "shotguns": "SHOTGUNS",
+    "snipers": "SNIPERS",
+    "assault_rifles": "ASSAULT RIFLES",
+    "smgs": "SMGS",
+    "launchers": "LAUNCHERS",
 }
 
 CURRENT_CAT_IDX = 0
@@ -73,7 +73,7 @@ CREATE_WEAPON_FROM_DEF = unrealsdk.find_class("WillowWeapon").ClassDefaultObject
 CREATE_ITEM_FROM_DEF = unrealsdk.find_class("WillowItem").ClassDefaultObject.CreateItemFromDef
 
 def log(msg: str) -> None:
-    print(f"[BUNKER_DEBUG] {msg}")
+    print(f"[ITEM_CATALOG] {msg}")
 
 def classify_item(itm):
     if not itm or not hasattr(itm, "Class") or not itm.Class:
@@ -125,7 +125,7 @@ def build_master_cache():
     player_level = pawn.GetExpLevel() if hasattr(pawn, "GetExpLevel") else 72
     item_pool_cdo = unrealsdk.find_class("ItemPool").ClassDefaultObject
 
-    log("Генерация каталога предметов...")
+    log("Building item catalog...")
     collected = []
     seen = set()
 
@@ -217,7 +217,7 @@ def build_master_cache():
 
     CACHED_MASTER_ITEMS = [(item, cat, subcat) for item, cat, subcat, _ in collected]
     IS_BUILDING_CACHE = False
-    log(f"Каталог готов. Предметов: {len(CACHED_MASTER_ITEMS)}")
+    log(f"Catalog ready. Items: {len(CACHED_MASTER_ITEMS)}")
     return CACHED_MASTER_ITEMS
 
 def get_current_filtered_pool():
@@ -245,16 +245,16 @@ def get_ui_strings(max_pages: int, total_items: int) -> tuple[str, str]:
     cat_key = CATEGORIES_LIST[CURRENT_CAT_IDX]
     sub_key = WEAPON_SUBS_LIST[CURRENT_SUBCAT_IDX]
 
-    cat_label = RU_CAT_NAMES.get(cat_key, cat_key.upper())
-    sub_label = RU_SUB_NAMES.get(sub_key, sub_key.upper())
+    cat_label = CAT_LABELS.get(cat_key, cat_key.upper())
+    sub_label = SUB_LABELS.get(sub_key, sub_key.upper())
 
     if cat_key == "weapons" and sub_key != "all":
         type_str = f"[{cat_label}: {sub_label}]"
     else:
         type_str = f"[{cat_label}]"
 
-    panel_title = f"Стр. {CURRENT_PAGE}/{max_pages} {type_str} ({total_items})"
-    hint_text = "[Z/X]Стр [C]Тип [V]Оружие"
+    panel_title = f"Page {CURRENT_PAGE}/{max_pages} {type_str} ({total_items})"
+    hint_text = "[Z/X] Page [C] Category [V] Weapon type"
     return panel_title, hint_text
 
 def refresh_shop_view():
@@ -303,7 +303,7 @@ def handle_purchase(item, _movie):
                     bForceSelectNameParts=True,
                 )
     except Exception as e:
-        log(f"Ошибка клонирования: {e}")
+        log(f"Clone error: {e}")
 
     if new_item is None:
         new_item = item
@@ -318,16 +318,16 @@ def handle_purchase(item, _movie):
             pawn.ForceNetUpdate()
 
         final_name = new_item.GetHumanReadableName() if hasattr(new_item, "GetHumanReadableName") else str(new_item)
-        log(f"Успешно куплено: {final_name}")
+        log(f"Added: {final_name}")
         try:
-            show_chat_message(f"Получено: {final_name}", user="[Магазин]")
+            show_chat_message(f"Received: {final_name}", user="[Catalog]")
         except Exception:
             pass
 
 def shop_key_handler(_movie, key: str, _event: int) -> bool:
     global CURRENT_PAGE, CURRENT_CAT_IDX, CURRENT_SUBCAT_IDX
 
-    # ДОБАВИТЬ ЭТУ СТРОКУ В САМОЕ НАЧАЛО ФУНКЦИИ:
+    # Only react to key presses, not repeats or releases
     if _event != 0:
         return False
 
@@ -372,7 +372,7 @@ def shop_key_handler(_movie, key: str, _event: int) -> bool:
 def open_master_shop():
     global CURRENT_PAGE
     if show_vendor is None:
-        log("Библиотека custom_vendor не найдена!")
+        log("custom_vendor library not found!")
         return
 
     filtered = get_current_filtered_pool()
@@ -401,7 +401,7 @@ def open_master_shop():
     identifier="Shop Category",
     value="all",
     choices=CATEGORIES_LIST,
-    description="Основная категория."
+    description="Main category."
 )
 def category_spinner(opt: SpinnerOption, val: str) -> None:
     global CURRENT_CAT_IDX
@@ -412,7 +412,7 @@ def category_spinner(opt: SpinnerOption, val: str) -> None:
     identifier="Weapon Subcategory",
     value="all",
     choices=WEAPON_SUBS_LIST,
-    description="Подтип оружия."
+    description="Weapon type."
 )
 def weapon_sub_spinner(opt: SpinnerOption, val: str) -> None:
     global CURRENT_SUBCAT_IDX
@@ -429,26 +429,26 @@ def ui_interaction_input_key(_1, args, _3, _4):
         if not pc:
             return None
 
-        # 1. Защита: не открываем, если витрина уже открыта
+        # 1. Don't open twice
         if is_vendor_open():
             return Block, True
 
-        # 2. Защита: не открываем, если игрок в инвентаре, паузе или другом меню
+        # 2. Don't open while the inventory, pause or another menu is open
         mgr = getattr(pc, "GFxUIManager", None)
         if mgr and hasattr(mgr, "ScreenMovies"):
-            # Если в стеке есть реальные окна помимо базового HUD/Echo
+            # Any open screen besides the base HUD/Echo
             active_screens = [m for m in mgr.ScreenMovies if m and "EchoVersion" not in m.Class.Name]
             if active_screens:
                 return Block, True
 
-        # 3. Открываем каталог и блокируем дальнейшую обработку клавиши игрой
+        # 3. Open the catalog and stop the game from handling the key
         open_master_shop()
         return Block, True
 
     return None
 
 def on_enable() -> None:
-    log("Мод загружен через custom_vendor. F5 — Открыть магазин.")
+    log("Loaded. F5 opens the catalog.")
 
 mod = build_mod(
     options=[category_spinner, weapon_sub_spinner],

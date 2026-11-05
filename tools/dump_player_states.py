@@ -1,3 +1,10 @@
+"""
+Dumps the states and the camera/menu related functions of the player controller and the main UI
+classes into a text file, for figuring out which functions to hook.
+
+Run it from the SDK console with: pyexec <path to this file>
+"""
+
 import os
 import unrealsdk
 from mods_base import get_pc
@@ -12,7 +19,7 @@ def inspect_uclass(uclass):
         "menu_functions": [],
         "properties": []
     }
-    
+
     if not uclass:
         return fields
 
@@ -20,7 +27,7 @@ def inspect_uclass(uclass):
     while cur:
         name = cur.Name
         cname = cur.Class.Name
-        
+
         if cname == "State":
             fields["states"].append(name)
         elif cname == "Function":
@@ -32,24 +39,24 @@ def inspect_uclass(uclass):
                 fields["menu_functions"].append(name)
         elif "Property" in cname:
             fields["properties"].append(f"{name} ({cname})")
-            
+
         cur = cur.Next
-        
+
     return fields
 
 def run_dump():
     pc = get_pc()
     if not pc:
-        print("[DUMP_ERR] PlayerController не найден!")
+        print("[DUMP_ERR] PlayerController not found!")
         return
 
     lines = []
     lines.append("=" * 80)
-    lines.append("BORDERLANDS 2: ПОЛНЫЙ ДАМП СОСТОЯНИЙ И МЕТОДОВ УПРАВЛЕНИЯ ИГРОКОМ И UI")
+    lines.append("BORDERLANDS 2: PLAYER CONTROLLER AND UI STATES AND METHODS")
     lines.append("=" * 80 + "\n")
 
-    # Текущие живые значения контроллера
-    lines.append("--- ТЕКУЩЕЕ СОСТОЯНИЕ В МОМЕНТ СНЯТИЯ ДАМПА ---")
+    # Live values of the controller
+    lines.append("--- STATE AT THE TIME OF THE DUMP ---")
     lines.append(f"PC Class                  : {pc.Class.Name}")
     lines.append(f"PC StateName              : {getattr(pc, 'StateName', 'None')}")
     lines.append(f"bViewingThirdPersonMenu   : {getattr(pc, 'bViewingThirdPersonMenu', 'None')}")
@@ -75,21 +82,18 @@ def run_dump():
             continue
         info = inspect_uclass(ucls)
         lines.append(f"[{label.upper()}] (Super: {ucls.SuperField.Name if ucls.SuperField else 'None'})")
-        
-        # Выводим состояния (States)
+
         lines.append(f"  > STATES ({len(info['states'])}):")
         for st in sorted(info["states"]):
             lines.append(f"      * {st}")
         if not info["states"]:
-            lines.append("      (Нет собственных стейтов, наследуются от предка)")
+            lines.append("      (No own states, inherited from the parent)")
 
-        # Методы управления камерой и видом
-        lines.append(f"\n  > МЕТОДЫ КАМЕРЫ И VIEW ({len(info['camera_functions'])}):")
+        lines.append(f"\n  > CAMERA / VIEW METHODS ({len(info['camera_functions'])}):")
         for fn in sorted(info["camera_functions"]):
             lines.append(f"      * {fn}")
 
-        # Методы окон, интеракций и меню
-        lines.append(f"\n  > МЕТОДЫ МЕНЮ / МАГАЗИНА / ИНТЕРАКЦИЙ ({len(info['menu_functions'])}):")
+        lines.append(f"\n  > MENU / SHOP / INTERACTION METHODS ({len(info['menu_functions'])}):")
         for fn in sorted(info["menu_functions"]):
             lines.append(f"      * {fn}")
 
@@ -98,8 +102,8 @@ def run_dump():
     try:
         with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
             f.write("\n".join(lines))
-        print(f"[DUMP_SUCCESS] Дамп сохранен в файл: {OUTPUT_FILE}")
+        print(f"[DUMP_SUCCESS] Dump saved to: {OUTPUT_FILE}")
     except Exception as e:
-        print(f"[DUMP_ERR] Не удалось сохранить файл: {e}")
+        print(f"[DUMP_ERR] Could not save the file: {e}")
 
 run_dump()

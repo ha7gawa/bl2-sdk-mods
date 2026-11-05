@@ -31,7 +31,7 @@ custom_key_handler: Callable[[UObject, str, int], bool] | None = None
 
 EShopType = unrealsdk.find_enum("EShopType")
 
-# Используем целочисленный 0 вместо несуществующего IST_None
+# Plain 0 since there is no IST_None, keeps the list in the order we pass it
 SORT_CONFIG = unrealsdk.make_struct(
     "SortFilterConfiguration",
     SortType=0,
@@ -204,7 +204,7 @@ def _hook_hide_iotd(obj, args, _ret, _func):
         pass
     return Block
 
-# ПОЛНЫЙ ЗАПРЕТ СОРТИРОВКИ ВНУТРИ SCALING LIST
+# Block all sorting inside the scrolling list
 @hook("WillowGame.WillowScrollingList:Sort", Type.PRE)
 def _hook_block_scrolling_sort(_obj, _args, _ret, _func):
     return Block

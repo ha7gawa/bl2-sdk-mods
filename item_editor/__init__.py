@@ -43,7 +43,7 @@ def is_weapon() -> bool:
 
 def get_part_friendly_name(part) -> str:
     if not part:
-        return "НЕТ / ДЕФОЛТ"
+        return "NONE / DEFAULT"
     name = getattr(part, "PartName", "")
     if name:
         return str(name)
@@ -55,18 +55,18 @@ def get_part_friendly_name(part) -> str:
     parts = part.Name.split("_")
     return parts[-1] if len(parts) > 1 else part.Name
 
-# --- БАЛАНСНЫЕ МАППИНГИ СЛОТОВ ИЗ REPLACEMENT_LISTS ---
+# --- Slot mappings, following the balance part lists (see Vendor Edit's replacement_lists) ---
 
 WEAPON_SLOTS_SCHEMA = [
-    ("BodyPartDefinition", "BodyPartData", "КОРПУС (Body)"),
-    ("GripPartDefinition", "GripPartData", "РУКОЯТЬ (Grip)"),
-    ("BarrelPartDefinition", "BarrelPartData", "СТВОЛ (Barrel)"),
-    ("SightPartDefinition", "SightPartData", "ПРИЦЕЛ (Sight)"),
-    ("StockPartDefinition", "StockPartData", "ПРИКЛАД (Stock)"),
-    ("ElementalPartDefinition", "ElementalPartData", "СТИХИЯ (Element)"),
-    ("Accessory1PartDefinition", "Accessory1PartData", "АКСЕССУАР 1"),
-    ("Accessory2PartDefinition", "Accessory2PartData", "АКСЕССУАР 2"),
-    ("MaterialPartDefinition", "MaterialPartData", "СКИН / МАТЕРИАЛ"),
+    ("BodyPartDefinition", "BodyPartData", "BODY"),
+    ("GripPartDefinition", "GripPartData", "GRIP"),
+    ("BarrelPartDefinition", "BarrelPartData", "BARREL"),
+    ("SightPartDefinition", "SightPartData", "SIGHT"),
+    ("StockPartDefinition", "StockPartData", "STOCK"),
+    ("ElementalPartDefinition", "ElementalPartData", "ELEMENT"),
+    ("Accessory1PartDefinition", "Accessory1PartData", "ACCESSORY"),
+    ("Accessory2PartDefinition", "Accessory2PartData", "ALT ACCESSORY"),
+    ("MaterialPartDefinition", "MaterialPartData", "MATERIAL"),
 ]
 
 ITEM_PARTS_KEYS = [
@@ -78,38 +78,38 @@ ITEM_PARTS_KEYS = [
     ("ZetaItemPartDefinition", "ZetaPartData", "ZetaParts", "ZETA"),
     ("EtaItemPartDefinition", "EtaPartData", "EtaParts", "ETA"),
     ("ThetaItemPartDefinition", "ThetaPartData", "ThetaParts", "THETA"),
-    ("MaterialItemPartDefinition", "MaterialPartData", "MaterialParts", "МАТЕРИАЛ"),
+    ("MaterialItemPartDefinition", "MaterialPartData", "MaterialParts", "MATERIAL"),
 ]
 
 ITEM_SLOT_LABELS = {
     "WillowShield": {
-        "DeltaItemPartDefinition": "АКСЕССУАР (Delta)",
-        "BetaItemPartDefinition": "БАТАРЕЯ (Beta)",
-        "AlphaItemPartDefinition": "КОРПУС (Alpha)",
-        "GammaItemPartDefinition": "КОНДЕНСАТОР (Gamma)",
-        "MaterialItemPartDefinition": "МАТЕРИАЛ (Material)",
+        "DeltaItemPartDefinition": "ACCESSORY (Delta)",
+        "BetaItemPartDefinition": "BATTERY (Beta)",
+        "AlphaItemPartDefinition": "BODY (Alpha)",
+        "GammaItemPartDefinition": "CAPACITOR (Gamma)",
+        "MaterialItemPartDefinition": "MATERIAL",
     },
     "WillowGrenadeMod": {
-        "DeltaItemPartDefinition": "АКСЕССУАР (Delta)",
-        "ZetaItemPartDefinition": "РАДИУС ВЗРЫВА (Zeta)",
-        "EtaItemPartDefinition": "КОЛИЧЕСТВО ГРАНАТ (Eta)",
-        "EpsilonItemPartDefinition": "УРОН (Epsilon)",
-        "BetaItemPartDefinition": "ТИП ДОСТАВКИ (Beta)",
-        "AlphaItemPartDefinition": "БОЕВАЯ ЧАСТЬ (Alpha)",
-        "ThetaItemPartDefinition": "СТИХИЙНЫЙ УРОН (Theta)",
-        "GammaItemPartDefinition": "ДЕТОНАТОР (Gamma)",
-        "MaterialItemPartDefinition": "МАТЕРИАЛ (Material)",
+        "DeltaItemPartDefinition": "ACCESSORY (Delta)",
+        "ZetaItemPartDefinition": "BLAST RADIUS (Zeta)",
+        "EtaItemPartDefinition": "CHILD COUNT (Eta)",
+        "EpsilonItemPartDefinition": "DAMAGE (Epsilon)",
+        "BetaItemPartDefinition": "DELIVERY (Beta)",
+        "AlphaItemPartDefinition": "PAYLOAD (Alpha)",
+        "ThetaItemPartDefinition": "STATUS DAMAGE (Theta)",
+        "GammaItemPartDefinition": "TRIGGER (Gamma)",
+        "MaterialItemPartDefinition": "MATERIAL",
     },
     "WillowClassMod": {
-        "AlphaItemPartDefinition": "СПЕЦИАЛИЗАЦИЯ (Alpha)",
-        "BetaItemPartDefinition": "ОСНОВНОЙ СТАТ (Beta)",
-        "GammaItemPartDefinition": "ВТОРИЧНЫЙ СТАТ (Gamma)",
-        "MaterialItemPartDefinition": "ШТРАФ / СВОЙСТВО (Material)",
+        "AlphaItemPartDefinition": "SPECIALIZATION (Alpha)",
+        "BetaItemPartDefinition": "PRIMARY (Beta)",
+        "GammaItemPartDefinition": "SECONDARY (Gamma)",
+        "MaterialItemPartDefinition": "PENALTY (Material)",
     },
     "WillowArtifact": {
-        "EtaItemPartDefinition": "КОРПУС РЕЛИКВИИ (Eta)",
-        "ThetaItemPartDefinition": "УЛУЧШЕНИЕ / СТАТ (Theta)",
-        "MaterialItemPartDefinition": "ТИП СТИХИИ / МАТЕРИАЛ",
+        "EtaItemPartDefinition": "BODY (Eta)",
+        "ThetaItemPartDefinition": "UPGRADE (Theta)",
+        "MaterialItemPartDefinition": "ELEMENT / MATERIAL",
     },
 }
 
@@ -121,7 +121,7 @@ def get_item_slot_title(cls, def_field: str, default_label: str) -> str:
                 return mapping[def_field]
     return default_label
 
-# --- ТОЧНЫЙ СБОР ПО БАЛАНСУ ДВИЖКА (REPLACEMENT_LISTS) ---
+# --- Collect the parts the balance actually allows ---
 
 def collect_native_slots(inv, def_data):
     slots = []
@@ -143,7 +143,7 @@ def collect_native_slots(inv, def_data):
                     slots.append((def_field, parts, label))
         return slots
 
-    # ЛОГИКА ДЛЯ ITEMS (Щиты, Грены, Моды, Реликвии)
+    # Items (shields, grenades, class mods, relics)
     definition = getattr(balance, "InventoryDefinition", None)
     part_col = getattr(balance, "RuntimePartListCollection", None) or getattr(balance, "PartListCollection", None)
     rep_mode = getattr(part_col, "PartReplacementMode", None) if part_col else None
@@ -151,7 +151,7 @@ def collect_native_slots(inv, def_data):
     for def_field, col_attr, def_attr, default_label in ITEM_PARTS_KEYS:
         parts_set = []
 
-        # 1. Считываем из базового определения InventoryDefinition
+        # 1. Parts from the base InventoryDefinition
         if definition:
             def_part_list = getattr(definition, def_attr, None)
             if def_part_list:
@@ -160,7 +160,7 @@ def collect_native_slots(inv, def_data):
                     if p is not None and p not in parts_set:
                         parts_set.append(p)
 
-        # 2. Учитываем коллекцию баланса и PartReplacementMode
+        # 2. Apply the balance's part collection according to PartReplacementMode
         if part_col:
             col_part_list = getattr(part_col, col_attr, None)
             if col_part_list and getattr(col_part_list, "bEnabled", True):
@@ -280,9 +280,9 @@ def clone_current_item_to_backpack():
     if hasattr(inv_mgr, "ForceNetUpdate"):
         inv_mgr.ForceNetUpdate()
 
-    show_chat_message("★ Клон успешно добавлен в ваш рюкзак!", user="[Редактор]")
+    show_chat_message("★ Clone added to your backpack!", user="[Item Editor]")
 
-# ================= ЭКРАНЫ =================
+# ================= SCREENS =================
 
 def render_slots_view():
     global current_state, current_replacements
@@ -294,24 +294,24 @@ def render_slots_view():
     pc = get_pc()
     pawn = pc.Pawn if pc else None
 
-    # 1. Верхний эталон
+    # 1. Preview of the item being edited
     top_item = create_fresh_item(current_def_data, pawn, b_readied=True)
     display_items = [top_item] if top_item else []
 
-    # 2. Выбор уровня
+    # 2. Level selector
     cur_lvl = current_def_data.ManufacturerGradeIndex
-    lvl_dummy = get_slot_dummy_item("__LEVEL__", f"★ УРОВЕНЬ: {cur_lvl}", pawn)
+    lvl_dummy = get_slot_dummy_item("__LEVEL__", f"★ LEVEL: {cur_lvl}", pawn)
     if lvl_dummy:
         _dummy_to_slot_map[lvl_dummy] = "__LEVEL_SELECTOR__"
         display_items.append(lvl_dummy)
 
-    # 3. Клонирование
-    clone_dummy = get_slot_dummy_item("__CLONE__", "★ СОЗДАТЬ ДУБЛИКАТ (КЛОН)", pawn)
+    # 3. Clone
+    clone_dummy = get_slot_dummy_item("__CLONE__", "★ CREATE A COPY (CLONE)", pawn)
     if clone_dummy:
         _dummy_to_slot_map[clone_dummy] = "__CLONE_ACTION__"
         display_items.append(clone_dummy)
 
-    # 4. Балансные слоты деталей
+    # 4. Part slots from the balance
     slots_info = collect_native_slots(original_item, current_def_data)
     current_replacements = slots_info
 
@@ -324,11 +324,11 @@ def render_slots_view():
             _dummy_to_slot_map[dummy] = def_field
             display_items.append(dummy)
 
-    item_name = top_item.GetHumanReadableName() if top_item else "Оружие"
+    item_name = top_item.GetHumanReadableName() if top_item else "Item"
     custom_vendor.update_vendor_items(
         display_items,
-        title=f"РЕДАКТОР: {item_name}",
-        hint="[ESC] В инвентарь | Клик по кнопкам для действий",
+        title=f"EDITOR: {item_name}",
+        hint="[ESC] Back to inventory | Click an entry to use it",
     )
 
 def render_parts_view(slot_field: str, parts_list: list, slot_label: str):
@@ -356,8 +356,8 @@ def render_parts_view(slot_field: str, parts_list: list, slot_label: str):
             display_items.append(item_variant)
 
     installed_name = get_part_friendly_name(cur_installed_part)
-    title = f"{slot_label} (Установлено: {installed_name})"
-    hint = "[ESC] К списку слотов | Клик — заменить деталь"
+    title = f"{slot_label} (Installed: {installed_name})"
+    hint = "[ESC] Back to slots | Click a part to install it"
     custom_vendor.update_vendor_items(display_items, title=title, hint=hint)
 
 def render_levels_view():
@@ -393,11 +393,11 @@ def render_levels_view():
             _level_options_map[item_variant] = lvl
             display_items.append(item_variant)
 
-    title = f"ВЫБОР УРОВНЯ (Сейчас: Ур. {cur_lvl})"
-    hint = "[ESC] Назад к слотам | Клик — применить уровень"
+    title = f"SELECT LEVEL (Current: {cur_lvl})"
+    hint = "[ESC] Back to slots | Click a level to apply it"
     custom_vendor.update_vendor_items(display_items, title=title, hint=hint)
 
-# ================= ОБРАБОТКА ВВОДА =================
+# ================= INPUT =================
 
 def on_vendor_item_selected(selected_obj, _movie):
     global current_def_data
@@ -426,7 +426,7 @@ def on_vendor_item_selected(selected_obj, _movie):
             setattr(current_def_data, slot_field, chosen_part)
             current_def_data.UniqueId = int(time.time() * 1000) % 2147483647
             part_name = get_part_friendly_name(chosen_part)
-            show_chat_message(f"Установлено: {part_name}", user="[Редактор]")
+            show_chat_message(f"Installed: {part_name}", user="[Item Editor]")
             render_parts_view(slot_field, parts, slot_label)
 
     elif current_state == STATE_LEVELS:
@@ -435,7 +435,7 @@ def on_vendor_item_selected(selected_obj, _movie):
             current_def_data.ManufacturerGradeIndex = new_lvl
             current_def_data.GameStage = new_lvl
             current_def_data.UniqueId = int(time.time() * 1000) % 2147483647
-            show_chat_message(f"Уровень изменён на: {new_lvl}", user="[Редактор]")
+            show_chat_message(f"Level changed to: {new_lvl}", user="[Item Editor]")
             render_levels_view()
 
 def commit_changes_to_inventory():
@@ -533,7 +533,7 @@ def _on_status_input_key(obj, args, _ret, _func):
                 obj.Close(False)
             return Block, True
         else:
-            show_chat_message("Наведите курсор на предмет!", user="[Редактор]")
+            show_chat_message("Hover over an item first!", user="[Item Editor]")
             return Block, True
 
     return None
@@ -542,15 +542,15 @@ def _on_status_input_key(obj, args, _ret, _func):
 def _on_status_closed(_obj, _args, _ret, _func):
     global original_item
     if original_item is not None and custom_vendor:
-        item_name = original_item.GetHumanReadableName() if hasattr(original_item, "GetHumanReadableName") else "Предмет"
+        item_name = original_item.GetHumanReadableName() if hasattr(original_item, "GetHumanReadableName") else "Item"
         custom_vendor.show_vendor(
             items=[original_item],
             iotd=None,
             on_select=on_vendor_item_selected,
             on_close=on_editor_closed,
             key_handler=editor_key_handler,
-            title=f"РЕДАКТОР: {item_name}",
-            hint="[ESC] В инвентарь",
+            title=f"EDITOR: {item_name}",
+            hint="[ESC] Back to inventory",
         )
         render_slots_view()
 
@@ -564,6 +564,6 @@ def _on_echo_started(_obj, _args, _ret, _func):
             pc.ShowStatusMenu_Inventory()
 
 def on_enable():
-    log("Редактор готов с балансной генерацией деталей для всех предметов.")
+    log("Item editor ready.")
 
 mod = build_mod(on_enable=on_enable)
